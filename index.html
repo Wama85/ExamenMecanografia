@@ -57,29 +57,38 @@
       }
     });
 
-    function evaluarTexto() {
-      if (!testIniciado) {
-        iniciarTest();
-        testIniciado = true;
-      }
+function evaluarTexto() {
+  if (!testIniciado) {
+    iniciarTest();
+    testIniciado = true;
+  }
 
-      const textoUsuario = document.getElementById('textoUsuario').value.trim();
-      const palabrasUsuario = textoUsuario.split(/\s+/);
+  const textoUsuario = document.getElementById('textoUsuario').value.trim();
 
-      palabrasCorrectas = 0;
-      palabrasUsuario.forEach((palabra, index) => {
-        if (index < palabrasOriginales.length && palabra === palabrasOriginales[index]) {
-          palabrasCorrectas++;
-        }
-      });
+  // Limpiar signos y minúsculas
+  const limpiar = txt => txt
+    .replace(/[.,;:!?¿¡]/g, '')
+    .toLowerCase();
 
-      const tiempoTranscurrido = (new Date() - inicioTiempo) / 60000;
-      const palabrasPorMinuto = tiempoTranscurrido > 0 ? Math.round(palabrasUsuario.length / tiempoTranscurrido) : 0;
-      const puntuacion = parseFloat(((palabrasCorrectas / palabrasOriginales.length) * 10).toFixed(2));
+  const palabrasOriginalesLimpias = palabrasOriginales.map(limpiar);
+  const palabrasUsuario = textoUsuario.split(/\s+/).map(limpiar);
 
-      document.getElementById('contadorPalabras').innerText =
-        `Palabras correctas: ${palabrasCorrectas} | WPM: ${palabrasPorMinuto} | Puntuación: ${puntuacion}/10`;
+  palabrasCorrectas = 0;
+
+  // Contar cuántas palabras del usuario están en el texto original
+  palabrasUsuario.forEach(palabra => {
+    if (palabrasOriginalesLimpias.includes(palabra)) {
+      palabrasCorrectas++;
     }
+  });
+
+  const tiempoTranscurrido = (new Date() - inicioTiempo) / 60000;
+  const palabrasPorMinuto = tiempoTranscurrido > 0 ? Math.round(palabrasUsuario.length / tiempoTranscurrido) : 0;
+  const puntuacion = parseFloat(((palabrasCorrectas / palabrasOriginales.length) * 10).toFixed(2));
+
+  document.getElementById('contadorPalabras').innerText =
+    `Palabras correctas: ${palabrasCorrectas} | WPM: ${palabrasPorMinuto} | Puntuación: ${puntuacion}/10`;
+}
 
     function iniciarTest() {
       inicioTiempo = new Date();
