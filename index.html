@@ -21,11 +21,13 @@
           </div>
           <div class="mb-3">
             <label for="textoOriginal" class="form-label">Texto para escribir:</label>
-            <textarea class="form-control" id="textoOriginal" rows="6" readonly></textarea>
+            <textarea class="form-control" id="textoOriginal" rows="8" readonly></textarea>
           </div>
           <div class="mb-3">
             <label for="textoUsuario" class="form-label">Escribe aquí:</label>
-            <textarea class="form-control" id="textoUsuario" rows="6" oninput="evaluarTexto()" onpaste="return false" onkeydown="bloquearCtrlV(event)"></textarea>
+            <!-- 🔒 bloqueado por defecto -->
+            <textarea class="form-control" id="textoUsuario" rows="8" disabled 
+              oninput="evaluarTexto()" onpaste="return false" onkeydown="bloquearCtrlV(event)"></textarea>
           </div>
           <p id="tiempoRestante" class="text-center mt-2">Tiempo restante: 2:00</p>
         </form>
@@ -57,42 +59,61 @@
       }
     });
 
-function evaluarTexto() {
-  if (!testIniciado) {
-    iniciarTest();
-    testIniciado = true;
-  }
+    // ✅ Desbloquear casilla cuando haya nombre y apellido
+    document.getElementById("nombre").addEventListener("input", validarCampos);
+    document.getElementById("apellido").addEventListener("input", validarCampos);
 
-  const textoUsuario = document.getElementById('textoUsuario').value.trim();
+    function validarCampos() {
+      const nombre = document.getElementById("nombre").value.trim();
+      const apellido = document.getElementById("apellido").value.trim();
+      const textoUsuario = document.getElementById("textoUsuario");
 
-  // Limpiar signos y minúsculas
-  const limpiar = txt => txt
-    .replace(/[.,;:!?¿¡]/g, '')
-    .toLowerCase();
-
-  const palabrasOriginalesLimpias = palabrasOriginales.map(limpiar);
-  const palabrasUsuario = textoUsuario.split(/\s+/).map(limpiar);
-
-  palabrasCorrectas = 0;
-
-  // Contar cuántas palabras del usuario están en el texto original
-  palabrasUsuario.forEach(palabra => {
-    if (palabrasOriginalesLimpias.includes(palabra)) {
-      palabrasCorrectas++;
+      if (nombre && apellido) {
+        textoUsuario.disabled = false;  // desbloquear
+      } else {
+        textoUsuario.disabled = true;   // volver a bloquear
+      }
     }
-  });
 
-  const tiempoTranscurrido = (new Date() - inicioTiempo) / 60000;
-  const palabrasPorMinuto = tiempoTranscurrido > 0 ? Math.round(palabrasUsuario.length / tiempoTranscurrido) : 0;
-  const puntuacion = parseFloat(((palabrasCorrectas / palabrasOriginales.length) * 10).toFixed(2));
+    function evaluarTexto() {
+      if (!testIniciado) {
+        iniciarTest();
+        testIniciado = true;
+      }
 
-  document.getElementById('contadorPalabras').innerText =
-    `Palabras correctas: ${palabrasCorrectas} | WPM: ${palabrasPorMinuto} | Puntuación: ${puntuacion}/10`;
-}
+      const textoUsuario = document.getElementById('textoUsuario').value.trim();
+
+      // Limpiar signos y minúsculas
+      const limpiar = txt => txt.replace(/[.,;:!?¿¡]/g, '').toLowerCase();
+
+      const palabrasOriginalesLimpias = palabrasOriginales.map(limpiar);
+      const palabrasUsuario = textoUsuario.split(/\s+/).map(limpiar);
+
+      palabrasCorrectas = 0;
+
+      // Contar cuántas palabras coinciden
+      palabrasUsuario.forEach(palabra => {
+        if (palabrasOriginalesLimpias.includes(palabra)) {
+          palabrasCorrectas++;
+        }
+      });
+
+      const tiempoTranscurrido = (new Date() - inicioTiempo) / 60000;
+      const palabrasPorMinuto = tiempoTranscurrido > 0 ? Math.round(palabrasUsuario.length / tiempoTranscurrido) : 0;
+      const puntuacion = parseFloat(((palabrasCorrectas / palabrasOriginales.length) * 10).toFixed(2));
+
+      document.getElementById('contadorPalabras').innerText =
+        `Palabras correctas: ${palabrasCorrectas} | WPM: ${palabrasPorMinuto} | Puntuación: ${puntuacion}/10`;
+    }
 
     function iniciarTest() {
-      inicioTiempo = new Date();
-      temporizador = setInterval(actualizarTiempo, 1000);
+      const nombre = document.getElementById("nombre").value.trim();
+      const apellido = document.getElementById("apellido").value.trim();
+
+      if (nombre !== '' && apellido !== '' && !temporizador) {
+        inicioTiempo = new Date();
+        temporizador = setInterval(actualizarTiempo, 1000);
+      }
     }
 
     function actualizarTiempo() {
@@ -113,65 +134,6 @@ function evaluarTexto() {
       if (e.ctrlKey && e.key === 'v') {
         e.preventDefault();
         alert('No se permite pegar texto en este campo.');
-      }
-    }
-
-    async function guardarEnHoja(palabrasCorrectas, puntuacion) {
-      const nombre = document.getElementById('nombre').value.trim();
-      const apellido = document.getElementById('apellido').value.trim();
-
-      if (!nombre || !apellido) {
-        alert('Por favor completa tu nombre y apellido');
-        return false;
-      }
-
-      const data = {
-        nombre,
-        apellido,
-        palabrasCorrectas,
-        puntuacion
-      };
-
-      try {
-        const scriptUrl = 'https://script.google.com/macros/s/AKfycbxHSWrRABwVkzmjjRtqLfXXdHd2TkhjRX8YBUjyuZWSXGbvhwEteQYXydQOASjQWALe/exec';
-
-        await fetch(scriptUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(data),
-          mode: 'no-cors'
-        });
-
-        return true;
-      } catch (error) {
-        console.error('Error al guardar:', error);
-        return false;
-      }
-    }
-
-    async function terminarTest() {
-      const nombre = document.getElementById('nombre').value;
-      const apellido = document.getElementById('apellido').value;
-
-      if (nombre && apellido) {
-        clearInterval(temporizador);
-        const tiempoTotal = (new Date() - inicioTiempo) / 60000;
-        const wpmFinal = tiempoTotal > 0 ? Math.round(palabrasCorrectas / tiempoTotal) : 0;
-        const puntuacionFinal = parseFloat(((palabrasCorrectas / palabrasOriginales.length) * 10).toFixed(2));
-
-        document.getElementById('resultado').innerText =
-          `Gracias, ${nombre} ${apellido}. Has escrito ${palabrasCorrectas} palabras correctas. 
-           Puntuación: ${puntuacionFinal}/10. 
-           Velocidad final: ${wpmFinal} palabras por minuto.`;
-
-        document.getElementById('textoUsuario').readOnly = true;
-
-        const resultadoGuardado = await guardarEnHoja(palabrasCorrectas, puntuacionFinal);
-        console.log(resultadoGuardado ? 'Resultados guardados exitosamente' : 'Error al guardar resultados');
-      } else {
-        alert("Por favor, completa todos los campos.");
       }
     }
   </script>
