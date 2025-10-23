@@ -4,6 +4,19 @@
   <meta charset="UTF-8">
   <title>Test de Mecanografía</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .nota-final {
+      font-size: 2rem;
+      font-weight: bold;
+      padding: 20px;
+      border-radius: 10px;
+      margin-top: 20px;
+    }
+    .bloqueado {
+      background-color: #f0f0f0;
+      cursor: not-allowed;
+    }
+  </style>
 </head>
 <body>
   <div class="container mt-5">
@@ -25,19 +38,22 @@
           </div>
           <div class="mb-3">
             <label for="textoUsuario" class="form-label">Escribe aquí:</label>
-            <!-- bloqueado por defecto defecto-->
+            <!-- bloqueado por defecto -->
             <textarea class="form-control" id="textoUsuario" rows="8" disabled 
               oninput="evaluarTexto()" onpaste="return false" onkeydown="bloquearCtrlV(event)"></textarea>
           </div>
           <p id="tiempoRestante" class="text-center mt-2">Tiempo restante: 2:00</p>
         </form>
-        <p id="resultado" class="mt-3 text-center text-success fw-bold"></p>
+        <p id="resultado" class="mt-3 text-center"></p>
         <p id="contadorPalabras" class="text-center mt-2">Palabras correctas: 0 | WPM: 0 | Puntuación: 0/10</p>
       </div>
     </div>
   </div>
 
   <script>
+    // ⚠️ IMPORTANTE: Reemplaza esta URL con la URL de tu Web App de Google Sheets
+    const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwiqDcjb1Q0HzzVIHm-v02IVmzp80z90bSO-5b4bLLxlU2Ay64vw-boIxixdRzjpPqI/exec';
+
     let textoOriginal = '';
     let palabrasOriginales = [];
     let palabrasCorrectas = 0;
@@ -45,6 +61,8 @@
     let tiempoLimite = 120;
     let temporizador;
     let testIniciado = false;
+    let puntuacionFinal = 0;
+    let wpmFinal = 0;
 
     // Cargar el texto desde texto.txt
     document.addEventListener('DOMContentLoaded', async () => {
@@ -68,9 +86,9 @@
       const apellido = document.getElementById("apellido").value.trim();
       const textoUsuario = document.getElementById("textoUsuario");
 
-      if (nombre && apellido) {
+      if (nombre && apellido && !testIniciado) {
         textoUsuario.disabled = false;  // desbloquear
-      } else {
+      } else if (!testIniciado) {
         textoUsuario.disabled = true;   // volver a bloquear
       }
     }
@@ -101,6 +119,9 @@
       const tiempoTranscurrido = (new Date() - inicioTiempo) / 60000;
       const palabrasPorMinuto = tiempoTranscurrido > 0 ? Math.round(palabrasUsuario.length / tiempoTranscurrido) : 0;
       const puntuacion = parseFloat(((palabrasCorrectas / palabrasOriginales.length) * 10).toFixed(2));
+
+      puntuacionFinal = puntuacion;
+      wpmFinal = palabrasPorMinuto;
 
       document.getElementById('contadorPalabras').innerText =
         `Palabras correctas: ${palabrasCorrectas} | WPM: ${palabrasPorMinuto} | Puntuación: ${puntuacion}/10`;
@@ -134,6 +155,79 @@
       if (e.ctrlKey && e.key === 'v') {
         e.preventDefault();
         alert('No se permite pegar texto en este campo.');
+      }
+    }
+
+    // ✅ FUNCIÓN PARA TERMINAR EL TEST
+    function terminarTest() {
+      // 1. Bloquear todos los campos
+      document.getElementById("nombre").disabled = true;
+      document.getElementById("apellido").disabled = true;
+      document.getElementById("textoUsuario").disabled = true;
+      document.getElementById("textoUsuario").classList.add("bloqueado");
+
+      // 2. Calcular valores finales
+      evaluarTexto();
+
+      // 3. Mostrar nota final
+      const resultado = document.getElementById('resultado');
+      let colorClase = 'bg-danger';
+      let mensaje = 'Necesitas mejorar';
+
+      if (puntuacionFinal >= 9) {
+        colorClase = 'bg-success';
+        mensaje = '¡Excelente!';
+      } else if (puntuacionFinal >= 7) {
+        colorClase = 'bg-info';
+        mensaje = '¡Muy bien!';
+      } else if (puntuacionFinal >= 5) {
+        colorClase = 'bg-warning';
+        mensaje = 'Bien';
+      }
+
+      resultado.innerHTML = `
+        <div class="nota-final ${colorClase} text-white">
+          ${mensaje}<br>
+          NOTA FINAL: ${puntuacionFinal}/10
+        </div>
+      `;
+
+      // 4. Enviar datos a Google Sheets
+      enviarDatos();
+    }
+
+    // ✅ FUNCIÓN PARA ENVIAR DATOS A GOOGLE SHEETS
+    async function enviarDatos() {
+      const nombre = document.getElementById("nombre").value.trim();
+      const apellido = document.getElementById("apellido").value.trim();
+
+      const datos = {
+        nombre: nombre,
+        apellido: apellido,
+        palabrasCorrectas: palabrasCorrectas,
+        puntuacion: puntuacionFinal
+      };
+
+      try {
+        const response = await fetch(GOOGLE_SHEETS_URL, {
+          method: 'POST',
+          mode: 'no-cors', // Necesario para Google Apps Script
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(datos)
+        });
+
+        console.log('Datos enviados correctamente a Google Sheets');
+        
+        // Mostrar mensaje de confirmación
+        const resultado = document.getElementById('resultado');
+        resultado.innerHTML += '<p class="text-success mt-3">✅ Resultados guardados correctamente</p>';
+        
+      } catch (error) {
+        console.error('Error al enviar datos:', error);
+        const resultado = document.getElementById('resultado');
+        resultado.innerHTML += '<p class="text-danger mt-3">⚠️ Error al guardar resultados</p>';
       }
     }
   </script>
