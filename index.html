@@ -3,233 +3,94 @@
 <head>
   <meta charset="UTF-8">
   <title>Test de Mecanografía</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <style>
-    .nota-final {
-      font-size: 2rem;
-      font-weight: bold;
-      padding: 20px;
-      border-radius: 10px;
-      margin-top: 20px;
-    }
-    .bloqueado {
-      background-color: #f0f0f0;
-      cursor: not-allowed;
-    }
-  </style>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
   <div class="container mt-5">
-    <div class="card">
+
+    <!-- LOGIN -->
+    <div id="loginScreen" class="card shadow">
+      <div class="card-body text-center p-5">
+        <h2 class="mb-3">Examen de Mecanografía</h2>
+        <p class="mb-2">Inicia sesión con tu cuenta institucional</p>
+        <p class="text-muted">@cesanrafael.org</p>
+
+        <div
+          id="g_id_onload"
+          data-client_id="103430746301-3cq2kchjklffrvkf1tcrq909f4mo1hh1.apps.googleusercontent.com"
+          data-callback="handleCredentialResponse"
+          data-auto_prompt="false">
+        </div>
+
+        <div
+          class="g_id_signin"
+          data-type="standard"
+          data-size="large"
+          data-theme="outline"
+          data-text="signin_with"
+          data-shape="rectangular"
+          data-logo_alignment="left">
+        </div>
+
+        <p id="loginMessage" class="mt-3"></p>
+      </div>
+    </div>
+
+    <!-- EXAMEN -->
+    <div id="examScreen" class="card shadow d-none">
       <div class="card-body">
-        <h5 class="card-title text-center">Test de Mecanografía</h5>
+        <h3 class="text-center mb-4">Test de Mecanografía</h3>
+
+        <div class="user-box mb-4">
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Correo institucional</label>
+              <input type="email" class="form-control" id="correo" readonly>
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Nombre</label>
+              <input type="text" class="form-control" id="nombre" readonly>
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Apellido</label>
+              <input type="text" class="form-control" id="apellido" readonly>
+            </div>
+          </div>
+        </div>
+
         <form id="testForm">
-          <div class="mb-3">
-            <label for="nombre" class="form-label">Nombre:</label>
-            <input type="text" class="form-control" id="nombre" name="nombre" required>
-          </div>
-          <div class="mb-3">
-            <label for="apellido" class="form-label">Apellido:</label>
-            <input type="text" class="form-control" id="apellido" name="apellido" required>
-          </div>
           <div class="mb-3">
             <label for="textoOriginal" class="form-label">Texto para escribir:</label>
             <textarea class="form-control" id="textoOriginal" rows="8" readonly></textarea>
           </div>
+
           <div class="mb-3">
             <label for="textoUsuario" class="form-label">Escribe aquí:</label>
-            <!-- bloqueado por defecto -->
-            <textarea class="form-control" id="textoUsuario" rows="8" disabled 
-              oninput="evaluarTexto()" onpaste="return false" onkeydown="bloquearCtrlV(event)"></textarea>
+            <textarea
+              class="form-control"
+              id="textoUsuario"
+              rows="8"
+              oninput="evaluarTexto()"
+              onpaste="return false"
+              onkeydown="bloquearCtrlV(event)"></textarea>
           </div>
+
           <p id="tiempoRestante" class="text-center mt-2">Tiempo restante: 2:00</p>
         </form>
+
         <p id="resultado" class="mt-3 text-center"></p>
-        <p id="contadorPalabras" class="text-center mt-2">Palabras correctas: 0 | WPM: 0 | Puntuación: 0/10</p>
+        <p id="contadorPalabras" class="text-center mt-2">
+          Palabras correctas: 0 | WPM: 0 | Precisión: 0% | Puntuación: 0/100
+        </p>
       </div>
     </div>
+
   </div>
 
-  <script>
-    // ⚠️ IMPORTANTE: Reemplaza esta URL con la URL de tu Web App de Google Sheets
-    const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwiqDcjb1Q0HzzVIHm-v02IVmzp80z90bSO-5b4bLLxlU2Ay64vw-boIxixdRzjpPqI/exec';
-
-    let textoOriginal = '';
-    let palabrasOriginales = [];
-    let palabrasCorrectas = 0;
-    let inicioTiempo;
-    let tiempoLimite = 120;
-    let temporizador;
-    let testIniciado = false;
-    let puntuacionFinal = 0;
-    let wpmFinal = 0;
-
-    // Cargar el texto desde texto.txt
-    document.addEventListener('DOMContentLoaded', async () => {
-      try {
-        const response = await fetch('texto.txt');
-        textoOriginal = await response.text();
-        palabrasOriginales = textoOriginal.trim().split(/\s+/);
-        document.getElementById("textoOriginal").value = textoOriginal;
-      } catch (error) {
-        console.error("Error al cargar el texto:", error);
-        document.getElementById("textoOriginal").value = "No se pudo cargar el texto.";
-      }
-    });
-
-    // ✅ Desbloquear casilla cuando haya nombre y apellido
-    document.getElementById("nombre").addEventListener("input", validarCampos);
-    document.getElementById("apellido").addEventListener("input", validarCampos);
-
-    function validarCampos() {
-      const nombre = document.getElementById("nombre").value.trim();
-      const apellido = document.getElementById("apellido").value.trim();
-      const textoUsuario = document.getElementById("textoUsuario");
-
-      if (nombre && apellido && !testIniciado) {
-        textoUsuario.disabled = false;  // desbloquear
-      } else if (!testIniciado) {
-        textoUsuario.disabled = true;   // volver a bloquear
-      }
-    }
-
-    function evaluarTexto() {
-      if (!testIniciado) {
-        iniciarTest();
-        testIniciado = true;
-      }
-
-      const textoUsuario = document.getElementById('textoUsuario').value.trim();
-
-      // Limpiar signos y minúsculas
-      const limpiar = txt => txt.replace(/[.,;:!?¿¡]/g, '').toLowerCase();
-
-      const palabrasOriginalesLimpias = palabrasOriginales.map(limpiar);
-      const palabrasUsuario = textoUsuario.split(/\s+/).map(limpiar);
-
-      palabrasCorrectas = 0;
-
-      // Contar cuántas palabras coinciden
-      palabrasUsuario.forEach(palabra => {
-        if (palabrasOriginalesLimpias.includes(palabra)) {
-          palabrasCorrectas++;
-        }
-      });
-
-      const tiempoTranscurrido = (new Date() - inicioTiempo) / 60000;
-      const palabrasPorMinuto = tiempoTranscurrido > 0 ? Math.round(palabrasUsuario.length / tiempoTranscurrido) : 0;
-      const puntuacion = parseFloat(((palabrasCorrectas / palabrasOriginales.length) * 10).toFixed(2));
-
-      puntuacionFinal = puntuacion;
-      wpmFinal = palabrasPorMinuto;
-
-      document.getElementById('contadorPalabras').innerText =
-        `Palabras correctas: ${palabrasCorrectas} | WPM: ${palabrasPorMinuto} | Puntuación: ${puntuacion}/10`;
-    }
-
-    function iniciarTest() {
-      const nombre = document.getElementById("nombre").value.trim();
-      const apellido = document.getElementById("apellido").value.trim();
-
-      if (nombre !== '' && apellido !== '' && !temporizador) {
-        inicioTiempo = new Date();
-        temporizador = setInterval(actualizarTiempo, 1000);
-      }
-    }
-
-    function actualizarTiempo() {
-      if (tiempoLimite <= 0) {
-        clearInterval(temporizador);
-        terminarTest();
-        return;
-      }
-
-      tiempoLimite--;
-      const minutos = Math.floor(tiempoLimite / 60);
-      const segundos = tiempoLimite % 60;
-      document.getElementById('tiempoRestante').innerText =
-        `Tiempo restante: ${minutos}:${segundos < 10 ? '0' : ''}${segundos}`;
-    }
-
-    function bloquearCtrlV(e) {
-      if (e.ctrlKey && e.key === 'v') {
-        e.preventDefault();
-        alert('No se permite pegar texto en este campo.');
-      }
-    }
-
-    // ✅ FUNCIÓN PARA TERMINAR EL TEST
-    function terminarTest() {
-      // 1. Bloquear todos los campos
-      document.getElementById("nombre").disabled = true;
-      document.getElementById("apellido").disabled = true;
-      document.getElementById("textoUsuario").disabled = true;
-      document.getElementById("textoUsuario").classList.add("bloqueado");
-
-      // 2. Calcular valores finales
-      evaluarTexto();
-
-      // 3. Mostrar nota final
-      const resultado = document.getElementById('resultado');
-      let colorClase = 'bg-danger';
-      let mensaje = 'Necesitas mejorar';
-
-      if (puntuacionFinal >= 9) {
-        colorClase = 'bg-success';
-        mensaje = '¡Excelente!';
-      } else if (puntuacionFinal >= 7) {
-        colorClase = 'bg-info';
-        mensaje = '¡Muy bien!';
-      } else if (puntuacionFinal >= 5) {
-        colorClase = 'bg-warning';
-        mensaje = 'Bien';
-      }
-
-      resultado.innerHTML = `
-        <div class="nota-final ${colorClase} text-white">
-          ${mensaje}<br>
-          NOTA FINAL: ${puntuacionFinal}/10
-        </div>
-      `;
-
-      // 4. Enviar datos a Google Sheets
-      enviarDatos();
-    }
-
-    // ✅ FUNCIÓN PARA ENVIAR DATOS A GOOGLE SHEETS
-    async function enviarDatos() {
-      const nombre = document.getElementById("nombre").value.trim();
-      const apellido = document.getElementById("apellido").value.trim();
-
-      const datos = {
-        nombre: nombre,
-        apellido: apellido,
-        palabrasCorrectas: palabrasCorrectas,
-        puntuacion: puntuacionFinal
-      };
-
-      try {
-        const response = await fetch(GOOGLE_SHEETS_URL, {
-          method: 'POST',
-          mode: 'no-cors', // Necesario para Google Apps Script
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(datos)
-        });
-
-        console.log('Datos enviados correctamente a Google Sheets');
-        
-        // Mostrar mensaje de confirmación
-        const resultado = document.getElementById('resultado');
-        resultado.innerHTML += '<p class="text-success mt-3">✅ Resultados guardados correctamente</p>';
-        
-      } catch (error) {
-        console.error('Error al enviar datos:', error);
-        const resultado = document.getElementById('resultado');
-        resultado.innerHTML += '<p class="text-danger mt-3">⚠️ Error al guardar resultados</p>';
-      }
-    }
-  </script>
+  <script src="js/app.js"></script>
 </body>
 </html>
