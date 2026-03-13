@@ -23,11 +23,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     const response = await fetch('texto.txt');
     textoOriginal = await response.text();
-    palabrasOriginales = textoOriginal.trim().split(/\s+/);
-    document.getElementById('textoOriginal').value = textoOriginal;
+    palabrasOriginales = limpiarTexto(textoOriginal).split(' ').filter(Boolean);
+    renderTextoOriginal([]);
   } catch (error) {
     console.error('Error al cargar el texto:', error);
-    document.getElementById('textoOriginal').value = 'No se pudo cargar el texto.';
+    document.getElementById('textoOriginalPreview').innerHTML = 'No se pudo cargar el texto.';
   }
 });
 
@@ -95,6 +95,35 @@ function limpiarTexto(txt) {
     .toLowerCase();
 }
 
+function escaparHTML(texto) {
+  return texto
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function renderTextoOriginal(palabrasUsuario) {
+  const contenedor = document.getElementById('textoOriginalPreview');
+
+  const html = palabrasOriginales.map((palabra, index) => {
+    let clase = 'palabra';
+
+    if (index < palabrasUsuario.length) {
+      if (palabrasUsuario[index] === palabra) {
+        clase += ' correcta';
+      } else {
+        clase += ' incorrecta';
+      }
+    } else if (index === palabrasUsuario.length) {
+      clase += ' actual';
+    }
+
+    return `<span class="${clase}">${escaparHTML(palabra)}</span>`;
+  }).join(' ');
+
+  contenedor.innerHTML = html;
+}
+
 function evaluarTexto() {
   if (testFinalizado) return;
 
@@ -105,30 +134,29 @@ function evaluarTexto() {
 
   const textoUsuarioRaw = document.getElementById('textoUsuario').value;
   const textoUsuarioLimpio = limpiarTexto(textoUsuarioRaw);
-  const palabrasOriginalesLimpias = limpiarTexto(textoOriginal).split(' ').filter(Boolean);
   const palabrasUsuario = textoUsuarioLimpio ? textoUsuarioLimpio.split(' ').filter(Boolean) : [];
 
   palabrasCorrectas = 0;
 
   for (let i = 0; i < palabrasUsuario.length; i++) {
-    if (palabrasUsuario[i] === palabrasOriginalesLimpias[i]) {
+    if (palabrasUsuario[i] === palabrasOriginales[i]) {
       palabrasCorrectas++;
     }
   }
+
+  renderTextoOriginal(palabrasUsuario);
 
   const tiempoTranscurrido = (new Date() - inicioTiempo) / 60000;
   const palabrasPorMinuto = tiempoTranscurrido > 0
     ? Math.round(palabrasUsuario.length / tiempoTranscurrido)
     : 0;
 
-  // Precisión: sobre lo que escribió el estudiante
   const precision = palabrasUsuario.length > 0
     ? parseFloat(((palabrasCorrectas / palabrasUsuario.length) * 100).toFixed(2))
     : 0;
 
-  // Puntuación: sobre el total del texto original
-  const puntuacion = palabrasOriginalesLimpias.length > 0
-    ? parseFloat(((palabrasCorrectas / palabrasOriginalesLimpias.length) * 100).toFixed(2))
+  const puntuacion = palabrasOriginales.length > 0
+    ? parseFloat(((palabrasCorrectas / palabrasOriginales.length) * 100).toFixed(2))
     : 0;
 
   precisionFinal = precision;
@@ -211,23 +239,34 @@ async function enviarDatos() {
     apellido: usuarioData.apellido,
     palabrasCorrectas: palabrasCorrectas,
     wpm: wpmFinal,
+    precision: precisionFinal,
     nota: puntuacionFinal
   };
 
-  console.log('Datos enviados al Sheet:', datos);
-
   try {
-    await fetch(GOOGLE_SHEETS_URL, {
+    const response = await fetch(GOOGLE_SHEETS_URL, {
       method: 'POST',
-      mode: 'no-cors',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'text/plain;charset=utf-8'
       },
       body: JSON.stringify(datos)
     });
 
-    document.getElementById('resultado').innerHTML +=
-      '<p class="text-success mt-3">Resultados guardados correctamente</p>';
+    const resultado = document.getElementById('resultado');
+
+    if (!response.ok) {
+      resultado.innerHTML += '<p class="text-danger mt-3">Error al guardar resultados</p>';
+      return;
+    }
+
+    const data = await response.json();
+
+    if (data.success) {
+      resultado.innerHTML += '<p class="text-success mt-3">Resultados guardados correctamente</p>';
+    } else {
+      resultado.innerHTML += `<p class="text-danger mt-3">${data.error}</p>`;
+    }
+
   } catch (error) {
     console.error('Error al enviar datos:', error);
     document.getElementById('resultado').innerHTML +=

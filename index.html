@@ -64,20 +64,20 @@
 
         <form id="testForm">
           <div class="mb-3">
-            <label for="textoOriginal" class="form-label">Texto para escribir:</label>
-            <textarea class="form-control" id="textoOriginal" rows="8" readonly></textarea>
-          </div>
+  <label class="form-label">Texto para escribir:</label>
+  <div id="textoOriginalPreview" class="texto-preview"></div>
+</div>
 
-          <div class="mb-3">
-            <label for="textoUsuario" class="form-label">Escribe aquí:</label>
-            <textarea
-              class="form-control"
-              id="textoUsuario"
-              rows="8"
-              oninput="evaluarTexto()"
-              onpaste="return false"
-              onkeydown="bloquearCtrlV(event)"></textarea>
-          </div>
+<div class="mb-3">
+  <label for="textoUsuario" class="form-label">Escribe aquí:</label>
+  <textarea
+    class="form-control"
+    id="textoUsuario"
+    rows="8"
+    oninput="evaluarTexto()"
+    onpaste="return false"
+    onkeydown="bloquearCtrlV(event)"></textarea>
+</div>
 
           <p id="tiempoRestante" class="text-center mt-2">Tiempo restante: 2:00</p>
         </form>
